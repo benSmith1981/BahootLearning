@@ -41,7 +41,7 @@ def init_db():
     """)
 
     c.execute("""
-    CREATE TABLE IF NOT EXISTS questions (
+    CREATE TABLE IF NOT EXISTS c (
         question_id INTEGER PRIMARY KEY AUTOINCREMENT,
         quiz_id INTEGER,
         question TEXT NOT NULL,
@@ -93,9 +93,39 @@ def index():
     conn.close()
     return render_template("index.html", quizzes=rows)
 
-@app.route("/quiz")
+@app.route("/quiz", methods=["GET", "POST"])
 def quiz():
-    return ""
+
+    # pretend this came from a DB
+    questions = [
+        {"question": "What is capital of France", "answer": "Paris"},
+        {"question": "What is capital of England", "answer": "London"}
+    ]
+
+    feedback = None
+
+    if request.method == "POST":
+        user_question = request.form.get("question")
+        user_answer = request.form.get("answer")
+
+        # find correct answer
+        correct_answer = None
+        for q in questions:
+            if q["question"] == user_question:
+                correct_answer = q["answer"]
+                break
+
+        # compare
+        if user_answer == correct_answer:
+            feedback = "✅ Correct!"
+        else:
+            feedback = f"❌ Incorrect — the correct answer was {correct_answer}"
+
+    return render_template(
+        "questionpage.html",
+        questions=questions,
+        feedback=feedback
+    )
 
 
 @app.route("/login")
