@@ -1,19 +1,13 @@
-from flask import Flask, render_template, request, redirect, session, abort, url_for
+from flask import Flask, render_template, request, redirect, session, url_for
 import sqlite3
-from datetime import datetime
-import os
-import secrets
-import requests
-from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
+
 app = Flask(__name__)
-app.secret_key = "SECRET123"  # Change in production
+app.secret_key = "SECRET123"
 
 
 # ---------- DB Helpers ----------
 def get_db():
-    db = app.config.get("DATABASE", "database.db")
-    conn = sqlite3.connect(db, check_same_thread=False)
+    conn = sqlite3.connect("database.db", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -23,120 +17,129 @@ def init_db():
     c = conn.cursor()
 
     c.execute("""
-    CREATE TABLE IF NOT EXISTS users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,       -- we'll store email here
-        password TEXT NOT NULL            -- hashed password
-        
-    )
-    """)
-
-    c.execute("""
     CREATE TABLE IF NOT EXISTS quiz (
         quiz_id INTEGER PRIMARY KEY AUTOINCREMENT,
         subject TEXT NOT NULL,
-        picture TEXT NOT NULL,
-        description TEXT NOT NULL
+        description TEXT NOT NULL,
+        picture TEXT
     )
     """)
 
     c.execute("""
-    CREATE TABLE IF NOT EXISTS c (
+    CREATE TABLE IF NOT EXISTS questions (
         question_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        quiz_id INTEGER,
+        quiz_id INTEGER NOT NULL,
         question TEXT NOT NULL,
-        answer TEXT NOT NULL
+        answer_options TEXT NOT NULL,
+        correct_answer TEXT NOT NULL,
+        FOREIGN KEY (quiz_id) REFERENCES quiz(quiz_id)
     )
     """)
 
     conn.commit()
     conn.close()
-    
 
 
-def seed_quizes():
+def seed_quizzes():
     conn = get_db()
     c = conn.cursor()
 
     quizzes = [
-        {
-            "subject": "English",
-            "description": "Quizzes testing your understanding of the English Language and literature",
-            "picture": "",
-        },
-        {
-            "subject": "Maths",
-            "description": "Quizzes testing your understanding of the Maths simple sums",
-            "picture": "",
-        },
-        {
-            "subject": "French",
-            "description": "Quizzes testing your understanding of the French Language. Bonjour!",
-            "picture": "",
-        }
+        ("English", "English language quiz", ""),
+        ("Maths", "Simple maths quiz", ""),
+        ("French", "Basic French quiz", "")
     ]
 
-    for p in quizzes:
-        c.execute("""
-            INSERT OR IGNORE INTO quiz (subject, description, picture)
-            VALUES (?, ?, ?)
-        """, (p["subject"], p["description"], p["picture"]))
+    c.executemany("""
+        INSERT OR IGNORE INTO quiz (subject, description, picture)
+        VALUES (?, ?, ?)
+    """, quizzes)
 
     conn.commit()
     conn.close()
+
+
+def seed_questions():
+    conn = get_db()
+    c = conn.cursor()
+
+    questions = [
+        (1, "What is the capital of France?", "Paris|London|Rome|Berlin", "Paris"),
+        (1, "What is the capital of England?", "London|Paris|Rome|Madrid", "London"),
+        (2, "What is 5 + 5?", "8|9|10|11", "10"),
+        (2, "What is 12 - 7?", "3|4|5|6", "5"),
+        (3, "What does 'Bonjour' mean?", "Hello|Goodbye|Please|Thanks", "Hello"),
+    ]
+
+    c.executemany("""
+        INSERT INTO questions (quiz_id, question, answer_options, correct_answer)
+        VALUES (?, ?, ?, ?)
+    """, questions)
+
+    conn.commit()
+    conn.close()
+
 
 # ---------- Routes ----------
 @app.route("/")
 def index():
     conn = get_db()
-    rows = conn.execute("SELECT subject, picture, description FROM quiz ORDER BY subject").fetchall()
+    quizzes = conn.execute(
+        "SELECT quiz_id, subject, description FROM quiz"
+    ).fetchall()
     conn.close()
-    return render_template("index.html", quizzes=rows)
+    return render_template("index.html", quizzes=quizzes)
+
+
+@app.route("/quiz/<int:id>")
+def start_quiz(id):
+    session["quiz_id"] = id
+    session["question_index"] = 0
+    session["score"] = 0
+    return redirect(url_for("quiz"))
+
 
 @app.route("/quiz", methods=["GET", "POST"])
 def quiz():
+    quiz_id = session.get("quiz_id")
 
-    # pretend this came from a DB
-    questions = [
-        {"question": "What is capital of France", "answer": "Paris"},
-        {"question": "What is capital of England", "answer": "London"}
-    ]
+    conn = get_db()
+    questions = conn.execute(
+        "SELECT * FROM questions WHERE quiz_id = ?",
+        (quiz_id,)
+    ).fetchall()
+    conn.close()
 
-    feedback = None
+    index = session.get("question_index", 0)
+
+    if index >= len(questions):
+        return render_template(
+            "quiz_complete.html",
+            score=session["score"],
+            total=len(questions)
+        )
+
+    question = questions[index]
+    options = question["answer_options"].split("|")
 
     if request.method == "POST":
-        user_question = request.form.get("question")
-        user_answer = request.form.get("answer")
+        selected = request.form.get("selected_answer")
 
-        # find correct answer
-        correct_answer = None
-        for q in questions:
-            if q["question"] == user_question:
-                correct_answer = q["answer"]
-                break
+        if selected == question["correct_answer"]:
+            session["score"] += 1
 
-        # compare
-        if user_answer == correct_answer:
-            feedback = "✅ Correct!"
-        else:
-            feedback = f"❌ Incorrect — the correct answer was {correct_answer}"
+        session["question_index"] += 1
+        return redirect(url_for("quiz"))
 
     return render_template(
         "questionpage.html",
-        questions=questions,
-        feedback=feedback
+        question=question,
+        options=options
     )
 
 
-@app.route("/login")
-def login():
-    return ""
-
-@app.route("/register")
-def register():
-    return ""
-
 if __name__ == "__main__":
     init_db()
-    seed_quizes()
+    seed_quizzes()
+    seed_questions()
     app.run(debug=True)

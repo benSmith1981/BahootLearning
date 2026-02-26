@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Welcome to the Bahoot{% endblock %}
+{% block title %}Quizzes{% endblock %}
 
 {% block content %}
-
 <div class="row g-4">
     {% for quiz in quizzes %}
     <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
-                <h5 class="card-title">{{ quiz.title }}</h5>
+                <h5 class="card-title">{{ quiz.subject }}</h5>
                 <p class="card-text">{{ quiz.description }}</p>
-                <a href="{{ url_for('quiz', id=quiz.quiz_id) }}" class="btn btn-primary">
+                <a href="{{ url_for('start_quiz', id=quiz.quiz_id) }}"
+                   class="btn btn-primary">
                     Start Quiz
                 </a>
             </div>
@@ -19,6 +19,4 @@
     </div>
     {% endfor %}
 </div>
-
-
 {% endblock %}

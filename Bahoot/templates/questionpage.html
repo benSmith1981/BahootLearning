@@ -3,21 +3,38 @@
 {% block title %}Welcome to the Quiz{% endblock %}
 
 {% block content %}
-{% for question in questions %}
-<div class="card">
+<div class="card mb-3">
     <div class="card-body">
-        <h5>{{ question["question"] }}</h5>
+        <h5>{{ question.question }}</h5>
 
         <form method="post" action="{{ url_for('quiz') }}">
-            <input type="hidden" name="question" value="{{ question['question'] }}">
-            <input type="hidden" name="answer" value="{{ question['answer'] }}">
+            <input type="hidden" name="question_id" value="{{ question.question_id }}">
 
-            <button type="submit" class="btn btn-primary">
-                {{ question["answer"] }}
+            {% for option in options %}
+            <div class="form-check">
+                <input
+                    class="form-check-input"
+                    type="radio"
+                    name="selected_answer"
+                    value="{{ option }}"
+                    required
+                >
+                <label class="form-check-label">
+                    {{ option }}
+                </label>
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary mt-3">
+                Submit
             </button>
         </form>
     </div>
 </div>
-{% endfor %}
-{{feedback}}
+
+{% if feedback %}
+<div class="alert alert-info mt-3">
+    {{ feedback }}
+</div>
+{% endif %}
 {% endblock %}
