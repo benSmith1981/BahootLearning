@@ -15,16 +15,35 @@ def get_db():
 def init_db():
     conn = get_db()
     c = conn.cursor()
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+    )
+    """)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_results (
+        result_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        quiz_id INTEGER NOT NULL,
+        score INTEGER NOT NULL,
+        total INTEGER NOT NULL,
+        date_taken TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(user_id),
+        FOREIGN KEY (quiz_id) REFERENCES quiz(quiz_id)
+    )
+    """)
+
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS quiz (
         quiz_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        subject TEXT NOT NULL,
+        subject TEXT UNIQUE NOT NULL,
         description TEXT NOT NULL,
         picture TEXT
     )
     """)
-
     c.execute("""
     CREATE TABLE IF NOT EXISTS questions (
         question_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +51,7 @@ def init_db():
         question TEXT NOT NULL,
         answer_options TEXT NOT NULL,
         correct_answer TEXT NOT NULL,
+        UNIQUE(quiz_id, question),
         FOREIGN KEY (quiz_id) REFERENCES quiz(quiz_id)
     )
     """)
@@ -63,22 +83,25 @@ def seed_questions():
     conn = get_db()
     c = conn.cursor()
 
-    questions = [
-        (1, "What is the capital of France?", "Paris|London|Rome|Berlin", "Paris"),
-        (1, "What is the capital of England?", "London|Paris|Rome|Madrid", "London"),
-        (2, "What is 5 + 5?", "8|9|10|11", "10"),
-        (2, "What is 12 - 7?", "3|4|5|6", "5"),
-        (3, "What does 'Bonjour' mean?", "Hello|Goodbye|Please|Thanks", "Hello"),
-    ]
+    count = c.execute("SELECT COUNT(*) FROM questions").fetchone()[0]
 
-    c.executemany("""
-        INSERT INTO questions (quiz_id, question, answer_options, correct_answer)
+    if count == 0:
+        questions = [
+            (1, "What is the capital of France?", "Paris|London|Rome|Berlin", "Paris"),
+            (1, "What is the capital of England?", "London|Paris|Rome|Madrid", "London"),
+            (2, "What is 5 + 5?", "8|9|10|11", "10"),
+            (2, "What is 12 - 7?", "3|4|5|6", "5"),
+            (3, "What does 'Bonjour' mean?", "Hello|Goodbye|Please|Thanks", "Hello"),
+        ]
+
+        c.executemany("""
+        INSERT INTO questions
+        (quiz_id, question, answer_options, correct_answer)
         VALUES (?, ?, ?, ?)
-    """, questions)
+        """, questions)
 
     conn.commit()
     conn.close()
-
 
 # ---------- Routes ----------
 @app.route("/")
