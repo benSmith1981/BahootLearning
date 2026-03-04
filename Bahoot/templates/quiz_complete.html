@@ -3,8 +3,15 @@
 {% block content %}
 <h2>Quiz Complete 🎉</h2>
 
-<p>Your score: <strong>{{ score }} / {{ total }}</strong></p>
+<h3>Your score: {{score}} / {{total}}</h3>
 
+{% if not logged_in %}
+<p>Login or register to track your quiz results!</p>
+
+<a href="/login">Login</a>
+<a href="/register">Register</a>
+
+{% endif %}
 <a href="{{ url_for('index') }}" class="btn btn-primary">
     Back to quizzes
 </a>

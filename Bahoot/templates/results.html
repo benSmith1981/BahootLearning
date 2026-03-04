@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to the Quiz{% endblock %}
+
+{% block content %}
+
+<h1>Your Quiz Results</h1>
+
+<table border="1">
+
+<tr>
+    <th>Quiz</th>
+    <th>Score</th>
+    <th>Date</th>
+</tr>
+
+{% for r in results %}
+
+<tr>
+    <td>{{ r.subject }}</td>
+    <td>{{ r.score }} / {{ r.total }}</td>
+    <td>{{ r.date_taken }}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+<br>
+
+<a href="/">Back to Home</a>
+{% endblock %}

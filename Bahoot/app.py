@@ -136,10 +136,29 @@ def quiz():
     index = session.get("question_index", 0)
 
     if index >= len(questions):
+
+        # Save result if user logged in
+        if "user_id" in session:
+
+            conn = get_db()
+            conn.execute("""
+                INSERT INTO quiz_results (user_id, quiz_id, score, total)
+                VALUES (?, ?, ?, ?)
+            """, (
+                session["user_id"],
+                quiz_id,
+                session["score"],
+                len(questions)
+            ))
+
+            conn.commit()
+            conn.close()
+
         return render_template(
             "quiz_complete.html",
             score=session["score"],
-            total=len(questions)
+            total=len(questions),
+            logged_in=("user_id" in session)
         )
 
     question = questions[index]
@@ -160,6 +179,84 @@ def quiz():
         options=options
     )
 
+@app.route("/results")
+def results():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+
+    results = conn.execute("""
+        SELECT quiz.subject, score, total, date_taken
+        FROM quiz_results
+        JOIN quiz ON quiz.quiz_id = quiz_results.quiz_id
+        WHERE user_id = ?
+        ORDER BY date_taken DESC
+    """, (session["user_id"],)).fetchall()
+
+    conn.close()
+
+    return render_template("results.html", results=results)
+
+# ---------- Auth ----------
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+
+        conn = get_db()
+        c = conn.cursor()
+
+        try:
+            c.execute(
+                "INSERT INTO users (username, password) VALUES (?, ?)",
+                (username, password)
+            )
+            conn.commit()
+            conn.close()
+
+            return redirect(url_for("login"))
+
+        except:
+            conn.close()
+            return "Username already exists"
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+
+        conn = get_db()
+
+        user = conn.execute(
+            "SELECT * FROM users WHERE username=? AND password=?",
+            (username, password)
+        ).fetchone()
+
+        conn.close()
+
+        if user:
+            session["user_id"] = user["user_id"]
+            session["username"] = user["username"]
+            return redirect(url_for("index"))
+
+        return "Invalid login"
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     init_db()
